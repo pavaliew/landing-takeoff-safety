@@ -102,7 +102,6 @@ def detect_objects_in_files(model, data, roi, output_path, visualization):
             cv2.imshow('Landing / Takeoff safety', cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2))
             cv2.waitKey(1)
             
-        # time.sleep(10)
         cv2.destroyAllWindows()
     else:
         for frame_idx, frame in enumerate(frames):
