@@ -14,24 +14,38 @@ def parse_arguments():
     '''Функция для парсинга аргументов, полученных при вызове через $ python main.py --example example ...'''
 
     parser = argparse.ArgumentParser(description='landing-takeoff-safety')
-    parser.add_argument('--data_type', type=bool, action='store_true', help='Тип входных файлов: Файлы, если --data_type указан как параметр при запуске, иначе - Видеопоток с девайса.')
+    parser.add_argument('--data_type', action='store_true', help='Тип входных файлов: Файлы, если --data_type указан как параметр при запуске, иначе - Видеопоток с девайса.')
     parser.add_argument('--data', type=str, required=True, help='Расположение данных.')
     parser.add_argument('--weights_path', type=str, required=True, help='Расположение файла с весами модели.')
     parser.add_argument('--roi', type=str, required=True, help='Region-of-Interest "x,y,w,h".')
     parser.add_argument('--output_path', type=str, required=True, help='Путь к результирующему JSON файлу.')
-    parser.add_argument('--visualization', type=bool, action='store_true', help='Если при запуске --visualization указан как параметр, то открывается дополнительное окно OpenCV с визуализацией распознавания.')
+    parser.add_argument('--visualization', action='store_true', help='Если при запуске --visualization указан как параметр, то открывается дополнительное окно OpenCV с визуализацией распознавания.')
     return parser.parse_args()
 
 
 
-def load_yolo_model(weights_path):
-    '''Функция загрузки метода и весов для дальнейшей детекции из библиотеки ultralytics'''
+def load_yolo_model(weights_path: ultralytics.YOLO):
+    '''
+    Функция загрузки метода и весов для дальнейшей детекции из библиотеки ultralytics
+    
+    :param weights_path: Путь к файлу с весами
+    :return: Импортированная через ultralytics модель
+    '''
     return ultralytics.YOLO(model=weights_path)
 
 
 
-def detect_objects_in_files(model, data, roi, output_path, visualization):
-    '''Функция детекции объектов на изображениях и видео'''
+def detect_objects_in_files(model: ultralytics.YOLO, data: str, roi: str, output_path:str, visualization: bool):
+    '''
+    Функция детекции объектов на изображениях и видео
+
+    :param model: Модель, импортированная через Ultralytics
+    :param data: Путь к папке с данными
+    :param roi: Строка, с координатами (двумя противоположными точками прямоугольника) региона интереса
+    :param output_path: Путь к результирующей папки
+    :param visualization: Флаг включения визуализации
+    :return: None
+    '''
 
     # Преобразование ROI в кортеж
     roi = tuple(map(int, roi.split(',')))
@@ -40,7 +54,7 @@ def detect_objects_in_files(model, data, roi, output_path, visualization):
     if os.path.isdir(data):
         files = [os.path.join(data, f) for f in os.listdir(data) if f.endswith(('.jpg', '.jpeg', '.png', 'bmp', 'tiff', '.mp4', '.avi'))]
     else:
-        files = [data] if data.endswith(('.jpg', '.jpeg', '.png', 'bmp', 'tiff', '.mp4', '.avi')) else []
+        files = [data] if data.endswith(('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.mp4', '.avi')) else []
 
     results_list = []
     frames = []
@@ -103,7 +117,7 @@ def detect_objects_in_files(model, data, roi, output_path, visualization):
             results = model(roi_frame)
             
             # Проверка наличия распознанных объектов в зоне интереса
-            if len(results[0].boxes['xyxy']) > 0:
+            if len(results[0].boxes.xyxy) > 0:
                 # Создание JSON файла с результатами
                 json_data = {
                         'file': file,
@@ -121,8 +135,16 @@ def detect_objects_in_files(model, data, roi, output_path, visualization):
 
     
 
-def detect_from_device(model, data, roi, output_path):
-    '''Функция детекции объектов на девайсе (камере)'''
+def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path: str):
+    '''
+    Функция детекции объектов на девайсе (камере). Визуализация проходит в любом случае
+    
+    :param model: Модель, импортированная через Ultralytics
+    :param data: Номер выбираемого девайса
+    :param roi: Строка, с координатами (двумя противоположными точками прямоугольника) региона интереса
+    :param output_path: Путь к результирующей папки
+    :return: None
+    '''
 
     # Преобразование ROI в кортеж
     roi = tuple(map(int, roi.split(',')))
