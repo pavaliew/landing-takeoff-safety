@@ -209,7 +209,7 @@ def main():
     if args.data_type:
         detect_objects_in_files(model, args.data, args.roi, args.output_path, args.visualization)
     else:
-        detect_from_device(model, args.roi, args.output_path)
+        detect_from_device(model, args.data, args.roi, args.output_path)
 
 
 if __name__ == '__main__':
