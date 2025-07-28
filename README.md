@@ -35,14 +35,23 @@
 
 ## Установка и запуск
 
-1. Установите Python (рекомендуется версия 3.12.4).
+1. Установите Python (рекомендуется версия 3.12).
 2. Загрузите репозиторий программного модуля.
 3. Установите требуемые библиотеки через команду, запущенную из директории с репозиторием: ``pip install -r requirements.txt``.
 4. Запустите программный модуль через команду, указав необходимые аргументы. Пример:  
 
    ```
-   python main.py --data_type --data test_data --roi "0,0,150,150" --output_path runs/run1.json
-   ```
+   python main.py --data_type --data test_data --roi "0,0,150,150" --output_path runs/run1.json --weights_path weights/yolov10s.pt  --visualization
+   ```  
+
+Установка с [conda](https://www.anaconda.com/download/):  
+1. `conda create -n lts python=3.12` - создание conda-окружения с рекомендуемой версией Python.
+2. `conda activate lts` - активация conda-окружения
+3. `git clone https://github.com/pavaliew/landing-takeoff-safety.git` - загрузка репозитория с помощью Git
+4. `cd landing-takeoff-safety`
+5. `pip install -r requirements.txt` - установка требуемых библиотек для Python
+6. `python main.py --data_type --data test_data --roi "0,0,150,150" --output_path runs/run1.json --weights_path weights/yolov10s.pt --visualization` - запуск программного модуля
+
 
 ## Описание аргументов при запуске
 
@@ -68,3 +77,6 @@
   ```
   python main.py --output_path run1.json
   ```
+
+* `--visualization` - включение визуализации OpenCV. Визуализация включена всегда, если программный модуль использует видеопоток с камеры.
+
