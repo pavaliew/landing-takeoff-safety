@@ -104,6 +104,10 @@ def detect_objects_in_files(model: ultralytics.YOLO, data: str, roi: str, output
 
                 print("Замечено препятствие в проверяемой области, требуется присутствие оператора!")
 
+                # Сохранение всех результатов в JSON файл
+                with open(output_path, 'w') as json_file:
+                    json.dump(results_list, json_file, indent=4)
+
             cv2.imshow('Landing / Takeoff safety', cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 3))
             cv2.waitKey(1)
         cv2.destroyAllWindows()
@@ -128,6 +132,10 @@ def detect_objects_in_files(model: ultralytics.YOLO, data: str, roi: str, output
                 results_list.append(json_data)
 
                 print("Замечено препятствие в проверяемой области, требуется присутствие оператора!")
+
+                # Сохранение всех результатов в JSON файл
+                with open(output_path, 'w') as json_file:
+                    json.dump(results_list, json_file, indent=4)
 
     # Сохранение всех результатов в один JSON файл
     with open(output_path, 'w') as json_file:
@@ -186,6 +194,10 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
 
             print("Замечено препятствие в проверяемой области, требуется присутствие оператора!")
 
+            # Сохранение всех результатов в JSON файл
+            with open(output_path, 'w') as json_file:
+                json.dump(results_list, json_file, indent=4)
+
         cv2.imshow('Landing / Takeoff safety', cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2))
         
         if cv2.waitKey(1)&0xFF==ord('q'):
@@ -194,7 +206,7 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
     cap.release()
     cv2.destroyAllWindows()
 
-    # Сохранение всех результатов в один JSON файл
+    # Итоговое сохранение всех результатов в один JSON файл
     with open(output_path, 'w') as json_file:
         json.dump(results_list, json_file, indent=4)
 
@@ -209,7 +221,7 @@ def main():
     if args.data_type:
         detect_objects_in_files(model, args.data, args.roi, args.output_path, args.visualization)
     else:
-        detect_from_device(model, args.roi, args.output_path)
+        detect_from_device(model, args.data, args.roi, args.output_path)   
 
 
 if __name__ == '__main__':

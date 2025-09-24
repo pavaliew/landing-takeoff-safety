@@ -30,8 +30,8 @@ seaborn==0.13.2
 setuptools==75.2.0
 six==1.16.0
 sympy==1.13.1
-torch==2.5.0
-torchvision==0.20.0
+https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.5.0a0+872d972e41.nv24.08-cp310-cp310-linux_aarch64.whl   
+https://github.com/ultralytics/assets/releases/download/v0.0.0/torchvision-0.20.0a0+afc54f7-cp310-cp310-linux_aarch64.whl
 tqdm==4.66.5
 typing_extensions==4.12.2
 tzdata==2024.2
