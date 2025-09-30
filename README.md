@@ -138,3 +138,4 @@ python main.py --data 0 --roi "0,0,640,640" --output_path runs/video_test.json -
 * Попробуйте другой индекс устройства (0, 1, 2...).
 * Убедитесь, что камера не используется другим приложением.
 
+https://github.com/rustdesk/rustdesk/releases/download/1.4.2/rustdesk-1.4.2-aarch64.deb
