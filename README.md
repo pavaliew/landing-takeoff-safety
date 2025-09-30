@@ -45,8 +45,9 @@
 
 1. Установите Python.
 2. Загрузите репозиторий программного модуля.
-3. Установите требуемые библиотеки через команду, запущенную из директории с репозиторием: ``pip install -r requirements.txt``.
-4. Запустите программный модуль через команду, указав необходимые аргументы. Пример:  
+3. Создайте виртуальное окружение ``python -m venv lts-venv`` и активируйте ``source lts-venv/bin/activate``
+4. Установите требуемые библиотеки через команду, запущенную из директории с репозиторием: ``pip install -r requirements.txt``.
+5. Запустите программный модуль через команду, указав необходимые аргументы. Пример:  
 
    ```
    python main.py --data_type --data test_data --roi "0,0,150,150" --output_path runs/run1.json --weights_path weights/yolov10s.pt  --visualization
@@ -106,6 +107,8 @@
 
 ## Тестовые сценарии
 
+Перед тестовыми сценариями обязательно включите виртуальное окружение: ``source lts-venv/bin/activate``
+
 **1. Базовая функциональность:**   
 ```
 python main.py --data_type --data test_data/sample.jpg --roi "0,0,300,300" --output_path runs/test1.json --weights_path weights/yolov10s.pt --visualization
@@ -137,5 +140,3 @@ python main.py --data 0 --roi "0,0,640,640" --output_path runs/video_test.json -
 * Проверьте подключение камеры.
 * Попробуйте другой индекс устройства (0, 1, 2...).
 * Убедитесь, что камера не используется другим приложением.
-
-https://github.com/rustdesk/rustdesk/releases/download/1.4.2/rustdesk-1.4.2-aarch64.deb
