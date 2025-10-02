@@ -198,7 +198,7 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
             with open(output_path, 'w') as json_file:
                 json.dump(results_list, json_file, indent=4)
 
-        cv2.imshow('Landing / Takeoff safety', cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2))
+        # cv2.imshow('Landing / Takeoff safety', cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2))
         
         if cv2.waitKey(1)&0xFF==ord('q'):
             break    
