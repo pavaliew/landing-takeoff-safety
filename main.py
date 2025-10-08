@@ -173,7 +173,7 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
     # Получаем параметры камеры
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = cap.get(cv2.CAP_PROP_FPS) if fps == 0 or fps is None else 30.0
+    fps = cap.get(cv2.CAP_PROP_FPS)
 
     video_writer = None
     
