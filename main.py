@@ -20,6 +20,7 @@ def parse_arguments():
     parser.add_argument('--roi', type=str, required=True, help='Region-of-Interest "x,y,w,h".')
     parser.add_argument('--output_path', type=str, required=True, help='Путь к результирующему JSON файлу.')
     parser.add_argument('--visualization', action='store_true', help='Если при запуске --visualization указан как параметр, то открывается дополнительное окно OpenCV с визуализацией распознавания.')
+    parser.add_argument('--video_output_path', type=str, required=True, help='Путь к результирующему mp4 файлу.')
     return parser.parse_args()
 
 
@@ -143,7 +144,7 @@ def detect_objects_in_files(model: ultralytics.YOLO, data: str, roi: str, output
 
     
 
-def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path: str):
+def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path: str, video_output_path: str):
     '''
     Функция детекции объектов на девайсе (камере). Визуализация проходит в любом случае
     
@@ -151,6 +152,7 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
     :param data: Номер выбираемого девайса
     :param roi: Строка, с координатами (двумя противоположными точками прямоугольника) региона интереса
     :param output_path: Путь к результирующей папки
+    :param video_output_path: Путь к записанному видео
     :return: None
     '''
 
@@ -162,53 +164,73 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
     if not cap.isOpened():
         raise ValueError("Unable to open device")
     
+    fps = 30.0
+    video_writer = None
+    
+    if video_output_path is None:
+        video_output_path = f"recorded_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+    
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    video_writer = cv2.VideoWriter(video_output_path, fourcc, fps, (1920, 1080))
+    
+    if not video_writer.isOpened():
+        print(f"Warning: Could not open video writer for {video_output_path}")
+        video_writer = None
+
     results_list = []
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+            x, y, w, h = roi
+            roi_frame = frame[y:y+h, x:x+w]
 
-        # Обрезание ROI
-        x, y, w, h = roi
-        roi_frame = frame[y:y+h, x:x+w]
+            results = model(roi_frame)
 
-        # Детекция объектов
-        results = model(roi_frame)
+            # Проверка наличия объектов
+            if len(results) > 0 and len(results[0].boxes.xyxy) > 0:
+                for box, conf, cls in zip(results[0].boxes.xyxy, results[0].boxes.conf, results[0].boxes.cls):
+                    x1, y1, x2, y2 = map(int, box[:4])
+                    label = f'{model.names[int(cls)]} {conf:.2f}'
+                    cv2.rectangle(roi_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(roi_frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-        # Проверка наличия объектов
-        if len(results) > 0 and len(results[0].boxes.xyxy) > 0:
-            for box, conf, cls in zip(results[0].boxes.xyxy, results[0].boxes.conf, results[0].boxes.cls):
-                x1, y1, x2, y2 = map(int, box[:4])
-                label = f'{model.names[int(cls)]} {conf:.2f}'
-                cv2.rectangle(roi_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(roi_frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                # Создание результирующего элемента в JSON файле с привязкой по времени
+                json_data = {
+                    'time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z%z'),
+                    'detections': results[0].boxes.xyxy.cpu().numpy().tolist(),
+                    'scenario': "Замечено препятствие в проверяемой области, требуется присутствие оператора!"
+                }
+                results_list.append(json_data)
 
-            # Создание результирующего элемента в JSON файле с привязкой по времени
-            json_data = {
-                'time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z%z'),
-                'detections': results[0].boxes.xyxy.cpu().numpy().tolist(),
-                'scenario': "Замечено препятствие в проверяемой области, требуется присутствие оператора!"
-            }
-            results_list.append(json_data)
+                print("Замечено препятствие в проверяемой области, требуется присутствие оператора!")
 
-            print("Замечено препятствие в проверяемой области, требуется присутствие оператора!")
+                # Сохранение всех результатов в результирующий JSON файл
+                with open(output_path, 'w') as json_file:
+                    json.dump(results_list, json_file, indent=4)
 
-            # Сохранение всех результатов в результирующий JSON файл
-            with open(output_path, 'w') as json_file:
-                json.dump(results_list, json_file, indent=4)
+            # cv2.imshow('Landing / Takeoff safety', cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3))
+            
+            video_writer.write(frame)
 
-        # cv2.imshow('Landing / Takeoff safety', cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2))
-        
-        if cv2.waitKey(1)&0xFF==ord('q'):
-            break    
+            if cv2.waitKey(1)&0xFF==ord('q'):
+                break    
+    
+    except KeyboardInterrupt:
+        print("Сохранение данных")
+    
+    finally:
+        cap.release()
+        video_writer.release()        
+        cv2.destroyAllWindows()
 
-    cap.release()
-    cv2.destroyAllWindows()
+        print(f"Видео сохранено в: {video_output_path}")
 
-    # Сохранение всех результатов в один JSON файл
-    with open(output_path, 'w') as json_file:
-        json.dump(results_list, json_file, indent=4)
+        # Сохранение всех результатов в один JSON файл
+        with open(output_path, 'w') as json_file:
+            json.dump(results_list, json_file, indent=4)
 
 
 
@@ -221,7 +243,7 @@ def main():
     if args.data_type:
         detect_objects_in_files(model, args.data, args.roi, args.output_path, args.visualization)
     else:
-        detect_from_device(model, args.data, args.roi, args.output_path)
+        detect_from_device(model, args.data, args.roi, args.output_path, args.video_output_path)
 
 
 if __name__ == '__main__':
