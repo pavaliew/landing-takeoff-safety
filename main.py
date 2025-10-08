@@ -224,9 +224,9 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
                     )
                     
                     # Автоматическое переключение в LOITER (только один раз)
-                    if auto_loiter and not loiter_activated:
+                    # if auto_loiter and not loiter_activated:
+                    if auto_loiter:
                         mavlink_comm.change_to_loiter()
-                        loiter_activated = True
 
                 # Создание результирующего элемента в JSON файле с привязкой по времени
                 json_data = {
