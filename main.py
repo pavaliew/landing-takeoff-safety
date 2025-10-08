@@ -4,6 +4,7 @@ import cv2
 import ultralytics
 import json
 import os
+from communication import MAVLinkCommunication
 
 
 __doc__ = '''Основной файл программного модуля анализа данных для обеспечения безопасности в зоне взлета / посадки на основе технического зрения и искусственного интеллекта'''
@@ -11,7 +12,12 @@ __doc__ = '''Основной файл программного модуля а�
 
 
 def parse_arguments():
-    '''Функция для парсинга аргументов, полученных при вызове через $ python main.py --example example ...'''
+    '''
+    Функция для парсинга аргументов, полученных при вызове через $ python main.py --example example ...
+    
+    :return:
+    :rtype: 
+    '''
 
     parser = argparse.ArgumentParser(description='landing-takeoff-safety')
     parser.add_argument('--data_type', action='store_true', help='Тип входных файлов: Файлы, если --data_type указан как параметр при запуске, иначе - Видеопоток с девайса.')
@@ -142,9 +148,9 @@ def detect_objects_in_files(model: ultralytics.YOLO, data: str, roi: str, output
     with open(output_path, 'w') as json_file:
         json.dump(results_list, json_file, indent=4)
 
-    
 
-def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path: str, video_output_path: str):
+
+def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path: str, video_output_path: str, mavlink_comm: MAVLinkCommunication = None, auto_loiter=False):
     '''
     Функция детекции объектов на девайсе (камере). Визуализация проходит в любом случае
     
@@ -153,7 +159,7 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
     :param roi: Строка, с координатами (двумя противоположными точками прямоугольника) региона интереса
     :param output_path: Путь к результирующей папки
     :param video_output_path: Путь к записанному видео
-    :return: None
+    :return: Nonez
     '''
 
     # Преобразование ROI в кортеж
@@ -164,20 +170,26 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
     if not cap.isOpened():
         raise ValueError("Unable to open device")
     
-    fps = 30.0
+    # Получаем параметры камеры
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS) if fps == 0 or fps is None else 30.0
+
     video_writer = None
     
     if video_output_path is None:
         video_output_path = f"recorded_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    video_writer = cv2.VideoWriter(video_output_path, fourcc, fps, (1920, 1080))
+    video_writer = cv2.VideoWriter(video_output_path, fourcc, fps, (frame_width, frame_height))
     
     if not video_writer.isOpened():
         print(f"Warning: Could not open video writer for {video_output_path}")
         video_writer = None
 
     results_list = []
+    loiter_activated = False  # Флаг для однократной активации LOITER
+
     try:
         while True:
             ret, frame = cap.read()
@@ -191,11 +203,29 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
 
             # Проверка наличия объектов
             if len(results) > 0 and len(results[0].boxes.xyxy) > 0:
+                detected_classes = []
+
                 for box, conf, cls in zip(results[0].boxes.xyxy, results[0].boxes.conf, results[0].boxes.cls):
                     x1, y1, x2, y2 = map(int, box[:4])
-                    label = f'{model.names[int(cls)]} {conf:.2f}'
+
+                    class_name = model.names[int(cls)]
+                    detected_classes.append(class_name)
+
+                    label = f'{class_name} {conf:.2f}'
                     cv2.rectangle(roi_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     cv2.putText(roi_frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+                # Отправка уведомления через MAVLink
+                if mavlink_comm:
+                    mavlink_comm.send_detection_alert(
+                        detection_count=len(results[0].boxes.xyxy),
+                        class_names=list(set(detected_classes))
+                    )
+                    
+                    # Автоматическое переключение в LOITER (только один раз)
+                    if auto_loiter and not loiter_activated:
+                        mavlink_comm.change_to_loiter()
+                        loiter_activated = True
 
                 # Создание результирующего элемента в JSON файле с привязкой по времени
                 json_data = {
@@ -239,12 +269,14 @@ def main():
 
     args = parse_arguments()
     model = load_yolo_model(args.weights_path)
+    mavlink_comm = MAVLinkCommunication(port='/dev/ttyACM0')
 
     if args.data_type:
         detect_objects_in_files(model, args.data, args.roi, args.output_path, args.visualization)
     else:
-        detect_from_device(model, args.data, args.roi, args.output_path, args.video_output_path)
+        detect_from_device(model, args.data, args.roi, args.output_path, args.video_output_path, mavlink_comm)
 
+    mavlink_comm.close()
 
 if __name__ == '__main__':
     main()
