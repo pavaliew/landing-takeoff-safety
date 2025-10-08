@@ -270,14 +270,16 @@ def main():
 
     args = parse_arguments()
     model = load_yolo_model(args.weights_path)
-    mavlink_comm = MAVLinkCommunication(port='/dev/ttyACM0')
+    mavlink_comm = MAVLinkCommunication(port='/dev/ttyACM0') # Захардкоденный порт у джетсона
 
     if args.data_type:
         detect_objects_in_files(model, args.data, args.roi, args.output_path, args.visualization)
     else:
-        detect_from_device(model, args.data, args.roi, args.output_path, args.video_output_path, mavlink_comm)
+        detect_from_device(model, args.data, args.roi, args.output_path, args.video_output_path, mavlink_comm, args.auto_loiter)
 
     mavlink_comm.close()
+
+
 
 if __name__ == '__main__':
     main()
