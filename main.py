@@ -11,12 +11,12 @@ __doc__ = '''Основной файл программного модуля а�
 
 
 
-def parse_arguments():
+def parse_arguments() -> argparse.ArgumentParser:
     '''
     Функция для парсинга аргументов, полученных при вызове через $ python main.py --example example ...
     
-    :return:
-    :rtype: 
+    :return: Объект с собранными аргументами
+    :rtype: argparse.ArgumentParser
     '''
 
     parser = argparse.ArgumentParser(description='landing-takeoff-safety')
@@ -27,6 +27,7 @@ def parse_arguments():
     parser.add_argument('--output_path', type=str, required=True, help='Путь к результирующему JSON файлу.')
     parser.add_argument('--visualization', action='store_true', help='Если при запуске --visualization указан как параметр, то открывается дополнительное окно OpenCV с визуализацией распознавания.')
     parser.add_argument('--video_output_path', type=str, required=True, help='Путь к результирующему mp4 файлу.')
+    parser.add_argument('--auto_loiter', action='store_true', help='Если указан как параметр при запуске, использует loiter')
     return parser.parse_args()
 
 
