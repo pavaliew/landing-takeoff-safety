@@ -199,7 +199,7 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
             x, y, w, h = roi
             roi_frame = frame[y:y+h, x:x+w]
 
-            results = model(roi_frame)
+            results = model(roi_frame, verbose=False)
 
             # Проверка наличия объектов
             if len(results) > 0 and len(results[0].boxes.xyxy) > 0:
