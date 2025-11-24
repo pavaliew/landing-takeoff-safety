@@ -26,13 +26,13 @@ def parse_arguments() -> argparse.ArgumentParser:
     parser.add_argument('--roi', type=str, required=True, help='Region-of-Interest "x,y,w,h".')
     parser.add_argument('--output_path', type=str, required=True, help='Путь к результирующему JSON файлу.')
     parser.add_argument('--visualization', action='store_true', help='Если при запуске --visualization указан как параметр, то открывается дополнительное окно OpenCV с визуализацией распознавания.')
-    parser.add_argument('--video_output_path', type=str, required=True, help='Путь к результирующему mp4 файлу.')
+    parser.add_argument('--video_output_path', type=str, required=False, help='Путь к результирующему mp4 файлу.')
     parser.add_argument('--auto_loiter', action='store_true', help='Если указан как параметр при запуске, использует loiter')
     return parser.parse_args()
 
 
 
-def load_yolo_model(weights_path: ultralytics.YOLO):
+def load_yolo_model(weights_path: str) -> ultralytics.YOLO:
     '''
     Функция загрузки метода и весов для дальнейшей детекции из библиотеки ultralytics
     
@@ -40,6 +40,25 @@ def load_yolo_model(weights_path: ultralytics.YOLO):
     :return: Импортированная через ultralytics модель
     '''
     return ultralytics.YOLO(model=weights_path)
+
+
+
+def check_output_json(output_path: str):
+    '''
+    Проверяется наличие JSON-файла по данному пути. Создается JSON-файл в случае его отсутствия.
+
+    :param output_path: Путь к результирующему JSON-файлу
+    :return: None 
+    '''
+
+    directory = os.path.dirname(output_path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+
+    # Если файла нет – создаём пустой JSON‑массив
+    if not os.path.exists(output_path):
+        with open(output_path, 'w') as json_file:
+            json.dump([], json_file, indent=4)
 
 
 
@@ -70,18 +89,20 @@ def detect_objects_in_files(model: ultralytics.YOLO, data: str, roi: str, output
         if file.endswith(('.jpg', '.jpeg', '.png')):
             frame = cv2.imread(file)
             if frame is None:
-                raise ValueError(f"Unable to load image {file}")
+                raise ValueError(f"[ОШИБКА] Не удалось загрузить изображение: {file}")
             frames.append(frame)
         else:
             cap = cv2.VideoCapture(file)
             if not cap.isOpened():
-                raise ValueError(f"Unable to open video source {file}")
+                raise ValueError(f"[ОШИБКА] Не удалось открыть видеозапмсь: {file}")
             while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
                     break
                 frames.append(frame)
             cap.release()
+
+    check_output_json(output_path)
     
     # Если подключена визуализация, то открывается окно opencv
     if visualization:
@@ -110,7 +131,7 @@ def detect_objects_in_files(model: ultralytics.YOLO, data: str, roi: str, output
                 }
                 results_list.append(json_data)
 
-                print("Замечено препятствие в проверяемой области, требуется присутствие оператора!")
+                print("[ПРЕД] Замечено препятствие в проверяемой области, требуется присутствие оператора!")
 
                 # Сохранение всех результатов в результирующий JSON файл
                 with open(output_path, 'w') as json_file:
@@ -139,7 +160,7 @@ def detect_objects_in_files(model: ultralytics.YOLO, data: str, roi: str, output
                 }
                 results_list.append(json_data)
 
-                print("Замечено препятствие в проверяемой области, требуется присутствие оператора!")
+                print("[ПРЕД] Замечено препятствие в проверяемой области, требуется присутствие оператора!")
 
                 # Сохранение всех результатов в JSON файл
                 with open(output_path, 'w') as json_file:
@@ -169,7 +190,7 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
     # Открытие девайса (камеры)
     cap = cv2.VideoCapture(int(data))
     if not cap.isOpened():
-        raise ValueError("Unable to open device")
+        raise ValueError("[ОШИБКА] Не удалось подключиться к устройству захвата (камеру)")
     
     # Получаем параметры камеры
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -179,18 +200,18 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
     video_writer = None
     
     if video_output_path is None:
-        video_output_path = f"recorded_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+        video_output_path = f'recorded_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4'
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     video_writer = cv2.VideoWriter(video_output_path, fourcc, fps, (frame_width, frame_height))
     
     if not video_writer.isOpened():
-        print(f"Warning: Could not open video writer for {video_output_path}")
+        print(f'[ПРЕД] Не удалось открыть файл для записи видео {video_output_path}, сохранение видео отключено.')
         video_writer = None
 
+    check_output_json(output_path)
+    
     results_list = []
-    loiter_activated = False  # Флаг для однократной активации LOITER
-
     try:
         while True:
             ret, frame = cap.read()
@@ -223,8 +244,6 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
                         class_names=list(set(detected_classes))
                     )
                     
-                    # Автоматическое переключение в LOITER (только один раз)
-                    # if auto_loiter and not loiter_activated:
                     if auto_loiter:
                         mavlink_comm.change_to_loiter()
 
@@ -232,32 +251,30 @@ def detect_from_device(model: ultralytics.YOLO, data: int, roi: str, output_path
                 json_data = {
                     'time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z%z'),
                     'detections': results[0].boxes.xyxy.cpu().numpy().tolist(),
-                    'scenario': "Замечено препятствие в проверяемой области, требуется присутствие оператора!"
+                    'scenario': 'Замечено препятствие в проверяемой области, требуется присутствие оператора!'
                 }
                 results_list.append(json_data)
 
-                print("Замечено препятствие в проверяемой области, требуется присутствие оператора!")
+                print('[ПРЕД] Замечено препятствие в проверяемой области, требуется присутствие оператора!')
 
                 # Сохранение всех результатов в результирующий JSON файл
                 with open(output_path, 'w') as json_file:
                     json.dump(results_list, json_file, indent=4)
 
-            # cv2.imshow('Landing / Takeoff safety', cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3))
-            
             video_writer.write(frame)
 
             if cv2.waitKey(1)&0xFF==ord('q'):
                 break    
     
     except KeyboardInterrupt:
-        print("Сохранение данных")
+        print('[ИНФО] Сохранение данных')
     
     finally:
         cap.release()
         video_writer.release()        
         cv2.destroyAllWindows()
 
-        print(f"Видео сохранено в: {video_output_path}")
+        print(f'[ИНФО] Видео сохранено в: {video_output_path}')
 
         # Сохранение всех результатов в один JSON файл
         with open(output_path, 'w') as json_file:
@@ -270,15 +287,25 @@ def main():
 
     args = parse_arguments()
     model = load_yolo_model(args.weights_path)
-    mavlink_comm = MAVLinkCommunication(port='/dev/ttyACM0') # Захардкоденный порт у джетсона
 
     if args.data_type:
         detect_objects_in_files(model, args.data, args.roi, args.output_path, args.visualization)
     else:
+        try:
+            mavlink_comm = MAVLinkCommunication(port='/dev/ttyACM0') # Захардкоденный порт у джетсона
+            print('[ИНФО] MAVLink соединение установлено')
+        except Exception as e:
+            print(f'[ОШИБКА] Не удалось установить MAVLink-соединение, продолжение работы без него: {e}')
+        
         detect_from_device(model, args.data, args.roi, args.output_path, args.video_output_path, mavlink_comm, args.auto_loiter)
-
-    mavlink_comm.close()
-
+        
+        if mavlink_comm is not None:
+            try:
+                mavlink_comm.close()
+                print('[ИНФО] MAVLink соединение закрыто')
+            except Exception as e:
+                print(f'[ОШИБКА] Не удалось закрыть MAVLink-соединение: {e}')
+        
 
 
 if __name__ == '__main__':

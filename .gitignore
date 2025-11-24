@@ -1,3 +1,4 @@
 /.venvs
 /runs
 /test-code
+/__pycache__
